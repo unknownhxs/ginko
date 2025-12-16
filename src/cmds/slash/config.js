@@ -5,45 +5,45 @@ const { reportInternalError } = require('../../services/reportErrorService');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('config')
-    .setDescription('Configurer les paramètres du bot')
+    .setDescription('Configure bot settings')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(subcommand =>
       subcommand
         .setName('captcha')
-        .setDescription('Configurer le système de captcha')
+        .setDescription('Configure the captcha system')
         .addBooleanOption(option =>
           option
             .setName('enabled')
-            .setDescription('Activer ou désactiver le captcha (défaut: false)')
+            .setDescription('Enable or disable captcha (default: false)')
             .setRequired(false))
         .addChannelOption(option =>
           option
             .setName('channel')
-            .setDescription('Canal où envoyer le captcha (laissez vide pour le canal de bienvenue)')
+            .setDescription('Channel to send captcha (leave empty to use welcome channel)')
             .setRequired(false))
         .addRoleOption(option =>
           option
             .setName('role')
-            .setDescription('Rôle à donner après vérification (laissez vide pour aucun)')
+            .setDescription('Role to assign after verification (leave empty for none)')
             .setRequired(false))
         .addIntegerOption(option =>
           option
             .setName('timeout')
-            .setDescription('Temps avant expulsion si non vérifié (en minutes, 0 = désactivé, défaut: 10)')
+            .setDescription('Kick timeout if not verified (minutes, 0 = disabled, default: 10)')
             .setRequired(false)
             .setMinValue(0)
             .setMaxValue(60)))
     .addSubcommand(subcommand =>
       subcommand
         .setName('status')
-        .setDescription('Voir la configuration actuelle')),
+        .setDescription('View the current configuration')),
   
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
 
     try {
       if (subcommand === 'captcha') {
-        // Récupérer ou créer la configuration
+        // Get or create configuration
         let config = await pool.query(
           'SELECT * FROM captcha_config WHERE guild_id = $1',
           [interaction.guild.id]
@@ -55,7 +55,7 @@ module.exports = {
         const timeout = interaction.options.getInteger('timeout');
 
         if (config.rows.length === 0) {
-          // Créer une nouvelle configuration
+          // Create a new configuration
           await pool.query(
             'INSERT INTO captcha_config (guild_id, enabled, channel_id, role_id, timeout_minutes, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
             [
@@ -67,7 +67,7 @@ module.exports = {
             ]
           );
         } else {
-          // Mettre à jour la configuration existante
+          // Update the existing configuration
           const currentConfig = config.rows[0];
           await pool.query(
             'UPDATE captcha_config SET enabled = COALESCE($1, enabled), channel_id = COALESCE($2, channel_id), role_id = COALESCE($3, role_id), timeout_minutes = COALESCE($4, timeout_minutes), updated_at = NOW() WHERE guild_id = $5',
@@ -81,7 +81,7 @@ module.exports = {
           );
         }
 
-        // Récupérer la configuration mise à jour
+        // Fetch the updated configuration
         config = await pool.query(
           'SELECT * FROM captcha_config WHERE guild_id = $1',
           [interaction.guild.id]
@@ -96,13 +96,13 @@ module.exports = {
           : null;
 
         const embed = new EmbedBuilder()
-          .setTitle('⚙️ Configuration du captcha mise à jour')
-          .setDescription('Les paramètres du captcha ont été mis à jour.')
+          .setTitle('⚙️ Captcha configuration updated')
+          .setDescription('Captcha settings have been updated.')
           .addFields(
-            { name: '🛡️ Statut', value: updatedConfig.enabled ? '✅ Activé' : '❌ Désactivé', inline: true },
-            { name: '📝 Canal', value: configChannel ? `${configChannel}` : 'Canal de bienvenue par défaut', inline: true },
-            { name: '🎭 Rôle', value: configRole ? `${configRole}` : 'Aucun', inline: true },
-            { name: '⏰ Timeout', value: updatedConfig.timeout_minutes > 0 ? `${updatedConfig.timeout_minutes} minute(s)` : 'Désactivé', inline: true }
+            { name: '🛡️ Status', value: updatedConfig.enabled ? '✅ Enabled' : '❌ Disabled', inline: true },
+            { name: '📝 Channel', value: configChannel ? `${configChannel}` : 'Default welcome channel', inline: true },
+            { name: '🎭 Role', value: configRole ? `${configRole}` : 'None', inline: true },
+            { name: '⏰ Timeout', value: updatedConfig.timeout_minutes > 0 ? `${updatedConfig.timeout_minutes} minute(s)` : 'Disabled', inline: true }
           )
           .setColor(0x5865F2)
           .setTimestamp();
@@ -110,15 +110,15 @@ module.exports = {
         await interaction.reply({ embeds: [embed] });
 
       } else if (subcommand === 'status') {
-        // Récupérer toutes les configurations
+        // Fetch all configurations
         const captchaConfig = await pool.query(
           'SELECT * FROM captcha_config WHERE guild_id = $1',
           [interaction.guild.id]
         );
 
         const embed = new EmbedBuilder()
-          .setTitle('📊 Configuration du bot')
-          .setDescription('Configuration actuelle du bot pour ce serveur')
+          .setTitle('📊 Bot configuration')
+          .setDescription('Current bot configuration for this server')
           .setColor(0x5865F2)
           .setTimestamp();
 
@@ -134,16 +134,16 @@ module.exports = {
 
           embed.addFields({
             name: '🔐 Captcha',
-            value: `**Statut:** ${capConfig.enabled ? '✅ Activé' : '❌ Désactivé'}\n` +
-                   `**Canal:** ${capChannel ? capChannel : 'Par défaut'}\n` +
-                   `**Rôle:** ${capRole ? capRole : 'Aucun'}\n` +
-                   `**Timeout:** ${capConfig.timeout_minutes > 0 ? `${capConfig.timeout_minutes} min` : 'Désactivé'}`,
+            value: `**Status:** ${capConfig.enabled ? '✅ Enabled' : '❌ Disabled'}\n` +
+                   `**Channel:** ${capChannel ? capChannel : 'Default'}\n` +
+                   `**Role:** ${capRole ? capRole : 'None'}\n` +
+                   `**Timeout:** ${capConfig.timeout_minutes > 0 ? `${capConfig.timeout_minutes} min` : 'Disabled'}`,
             inline: false
           });
         } else {
           embed.addFields({
             name: '🔐 Captcha',
-            value: '❌ Non configuré',
+            value: '❌ Not configured',
             inline: false
           });
         }
@@ -151,9 +151,9 @@ module.exports = {
         await interaction.reply({ embeds: [embed], ephemeral: true });
       }
     } catch (error) {
-      console.error('Erreur lors de la gestion de la configuration:', error);
+      console.error('Error while handling configuration:', error);
       
-      // Signaler l'erreur automatiquement au développeur
+      // Automatically report the error to the developer
       await reportInternalError(interaction.client, error, {
         commandName: 'config',
         user: interaction.user,
@@ -163,15 +163,15 @@ module.exports = {
       
       if (error.code === '42P01' || error.code === 'ER_NO_SUCH_TABLE') {
         const errorEmbed = new EmbedBuilder()
-          .setTitle('⚠️ Erreur de configuration')
-          .setDescription('La base de données n\'est pas correctement configurée. Veuillez exécuter le script d\'initialisation.')
+          .setTitle('⚠️ Configuration error')
+          .setDescription('The database is not properly configured. Please run the initialization script.')
           .setColor(0xED4245);
 
         return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
       }
 
       await interaction.reply({
-        content: '❌ Une erreur s\'est produite. Veuillez réessayer plus tard.',
+        content: '❌ An error occurred. Please try again later.',
         ephemeral: true
       });
     }
