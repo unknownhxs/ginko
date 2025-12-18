@@ -4,61 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RudyProtect - Protection Discord</title>
-    <link rel="stylesheet" href="/styles-app.css">
-</head>
-<body class="bg-dark">
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="navbar-container">
-            <div class="navbar-logo">
-                <i class="fas fa-leaf"></i>
-                <span>Ginko</span>
+    <link rel="stylesheet" href="assets/css/styles.css">    <link rel="stylesheet" href="styles-custom.css"></head>
+<body>
+    <!-- Main Header -->
+    <header class="main-header">
+        <div class="header-container">
+            <a href="#" class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+                </svg>
+                <span class="logo-text">RudyProtect</span>
+            </a>
+
+            <nav class="main-nav">
+                <a href="#features" class="nav-link">Fonctionnalités</a>
+                <a href="#about" class="nav-link">À Propos</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </nav>
+
+            <div class="nav-auth">
+                <a href="/auth/discord" class="btn-login">
+                    <span class="btn-login-icon">🔐</span>
+                    <span class="btn-login-text">Se connecter</span>
+                </a>
             </div>
-            <ul class="nav-menu">
-                <li><a href="#home" class="nav-link">Accueil</a></li>
-                <li><a href="#features" class="nav-link">Fonctionnalités</a></li>
-                <li><a href="#about" class="nav-link">À propos</a></li>
-                <li><a href="/auth/discord" class="nav-link btn-login"><i class="fab fa-discord"></i> Se connecter</a></li>
-            </ul>
         </div>
-    </nav>
+    </header>
 
     <!-- Hero Section -->
-    <section id="home" class="hero">
+    <section class="fullscreen-hero">
+        <div class="hero-overlay"></div>
+
         <div class="hero-content">
+            <div class="hero-avatar">
+                <div style="font-size: 80px; font-weight: bold; color: #FF6B35;">🛡️</div>
+            </div>
+
             <h1 class="hero-title">
-                <span class="text-primary">Ginko</span>
-                <span class="text-accent">Protection</span>
+                Bienvenue sur <span class="highlight">RudyProtect</span>
             </h1>
-            <p class="hero-subtitle">Sécurisez votre serveur Discord avec intelligence</p>
-            
-            <div class="hero-buttons">
-                <a href="/auth/discord" class="btn btn-primary">
-                    <i class="fab fa-discord"></i> Commencer
-                </a>
-                <a href="#features" class="btn btn-secondary">
-                    <i class="fas fa-arrow-down"></i> Découvrir
-                </a>
-            </div>
-        </div>
 
-        <!-- Animated Background -->
-        <div class="hero-bg">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-            <div class="orb orb-3"></div>
-        </div>
+            <p class="hero-subtitle">
+                Protégez votre serveur Discord avec une sécurité de pointe<br>
+                Captcha intelligent • Modération avancée • Logs complets
+            </p>
 
-        <!-- Floating Elements -->
-        <div class="floating-elements">
-            <div class="float-item" style="--delay: 0s">
-                <i class="fas fa-shield-alt"></i>
-            </div>
-            <div class="float-item" style="--delay: 1s">
-                <i class="fas fa-lock"></i>
-            </div>
-            <div class="float-item" style="--delay: 2s">
-                <i class="fas fa-check-circle"></i>
+            <div class="hero-actions">
+                <a href="/auth/discord" class="btn btn-primary btn-large">
+                    <i class="fas fa-sign-in-alt"></i> Commencer
+                </a>
+                <a href="#features" class="btn btn-secondary btn-large">
+                    Découvrir les fonctionnalités
+                </a>
             </div>
         </div>
     </section>
@@ -70,33 +67,25 @@
             
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-ban"></i>
-                    </div>
-                    <h3>Anti-Spam</h3>
-                    <p>Détecte et bloque automatiquement les spammeurs et messages répétitifs</p>
+                    <div class="feature-icon">🚫</div>
+                    <h3>Anti-Spam Avancé</h3>
+                    <p>Détecte et bloque automatiquement les spammeurs avec IA</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-list"></i>
-                    </div>
+                    <div class="feature-icon">📋</div>
                     <h3>Blacklist Intelligente</h3>
-                    <p>Gestion des IPs et IDs malveillants avec mise à jour automatique</p>
+                    <p>Gestion des IPs et IDs malveillants en temps réel</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-mute"></i>
-                    </div>
-                    <h3>Modération Avancée</h3>
-                    <p>Mute, kick, ban avec raisons et logs complètes</p>
+                    <div class="feature-icon">🔇</div>
+                    <h3>Modération Complète</h3>
+                    <p>Mute, kick, ban avec raisons et logs détaillés</p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
+                    <div class="feature-icon">🔐</div>
                     <h3>Captcha Automatique</h3>
                     <p>Vérification des nouveaux membres avec défis de sécurité</p>
                 </div>
