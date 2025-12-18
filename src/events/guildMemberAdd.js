@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFl
 const { pool } = require('../../config/config');
 const { reportInternalError } = require('../services/reportErrorService');
 
-// Stocker les utilisateurs en attente de vérification
+// Store users pending verification
 const pendingVerifications = new Map();
 
 module.exports = {
@@ -11,37 +11,37 @@ module.exports = {
   
   async execute(member) {
     try {
-      // Récupérer la configuration du captcha
+      // Fetch captcha configuration
       const config = await pool.query(
         'SELECT * FROM captcha_config WHERE guild_id = $1',
         [member.guild.id]
       );
 
       if (config.rows.length === 0 || !config.rows[0].enabled) {
-        // Captcha désactivé, rien à faire
+        // Captcha disabled, nothing to do
         return;
       }
 
       const captchaConfig = config.rows[0];
       
-      // Calculer le timeout en fonction du niveau de sécurité du serveur
+      // Compute timeout based on server verification level
       const verificationLevel = member.guild.verificationLevel;
       let actualTimeout = parseInt(captchaConfig.timeout_minutes) || 0;
       
-      // HIGH = 3, VERY_HIGH = 4 - Si sécurité haute, ajouter 10 minutes au timeout
+      // HIGH = 3, VERY_HIGH = 4 - If high security, add 10 minutes to timeout
       if (verificationLevel >= 3 && actualTimeout > 0) {
         actualTimeout = actualTimeout + 10;
       }
       
-      // Déterminer le canal où envoyer le captcha
+      // Determine the channel to send the captcha to
       let targetChannel = null;
       if (captchaConfig.channel_id) {
         targetChannel = member.guild.channels.cache.get(captchaConfig.channel_id);
       }
       
-      // Si pas de canal spécifique, utiliser le canal système de bienvenue
+      // If no specific channel, use a welcome-like channel
       if (!targetChannel) {
-        // Chercher un canal nommé "bienvenue", "welcome", "général", ou "general"
+        // Search for a channel named "welcome", "general" (keep French aliases too for compatibility)
         const welcomeChannels = member.guild.channels.cache.filter(channel => 
           channel.isTextBased() && 
           ['bienvenue', 'welcome', 'général', 'general', 'accueil'].some(name => 
@@ -64,11 +64,11 @@ module.exports = {
         return;
       }
 
-      // Générer un code de vérification aléatoire
+      // Generate random verification code
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       const verificationId = `${member.id}-${Date.now()}`;
       
-      // Stocker la vérification en attente (sans le message pour l'instant)
+      // Store the pending verification (without the message for now)
       pendingVerifications.set(verificationId, {
         memberId: member.id,
         guildId: member.guild.id,
@@ -76,72 +76,72 @@ module.exports = {
         timestamp: Date.now(),
         roleId: captchaConfig.role_id,
         timeoutMinutes: actualTimeout,
-        messageId: null, // Sera mis à jour après l'envoi
+        messageId: null, // Will be set after sending
         channelId: targetChannel.id
       });
 
-      // Calculer le temps d'attente après vérification (10 minutes si sécurité haute)
+      // Compute wait time after verification (10 minutes if high security)
       const waitTime = verificationLevel >= 3 ? 10 : 0;
       
-      // Créer l'embed de captcha
+      // Create captcha embed
       const captchaEmbed = new EmbedBuilder()
-        .setTitle('🔐 Vérification requise')
-        .setDescription(`Bienvenue sur **${member.guild.name}**, ${member.user}!\n\n` +
-                       `Pour accéder au serveur, vous devez compléter la vérification${waitTime > 0 ? ` et attendre ${waitTime} minute(s)` : ''} avant de pouvoir accéder à tous les canaux.\n\n` +
-                       `**Cliquez sur le bouton ci-dessous pour vérifier votre compte.**`)
+        .setTitle('🔐 Verification required')
+        .setDescription(`Welcome to **${member.guild.name}**, ${member.user}!\n\n` +
+                       `To access the server, you must complete verification${waitTime > 0 ? ` and wait ${waitTime} minute(s)` : ''} before gaining access to all channels.\n\n` +
+                       `**Click the button below to verify your account.**`)
         .setColor(0x5865F2)
         .setThumbnail(member.user.displayAvatarURL())
-        .setFooter({ text: `Vous avez ${actualTimeout > 0 ? actualTimeout : '∞'} minute(s) pour vous vérifier` })
+        .setFooter({ text: `You have ${actualTimeout > 0 ? actualTimeout : '∞'} minute(s) to verify` })
         .setTimestamp();
 
-      // Créer le bouton de vérification
+      // Create the verification button
       const verifyButton = new ButtonBuilder()
         .setCustomId(`verify_${verificationId}`)
-        .setLabel('✅ Vérifier mon compte')
+        .setLabel('✅ Verify my account')
         .setStyle(ButtonStyle.Success);
 
       const row = new ActionRowBuilder()
         .addComponents(verifyButton);
 
-      // Envoyer le message de captcha
+      // Send the captcha message
       const captchaMessage = await targetChannel.send({
         content: `${member.user}`,
         embeds: [captchaEmbed],
         components: [row]
       });
 
-      // Mettre à jour la vérification avec l'ID du message
+      // Update verification with the message ID
       const verification = pendingVerifications.get(verificationId);
       if (verification) {
         verification.messageId = captchaMessage.id;
         pendingVerifications.set(verificationId, verification);
       }
 
-      // Programmer l'expulsion si timeout activé
+      // Schedule the kick if timeout is enabled
       if (actualTimeout > 0) {
         setTimeout(async () => {
           const verification = pendingVerifications.get(verificationId);
           if (verification && verification.memberId === member.id) {
-            // L'utilisateur n'a pas été vérifié, l'expulser
+            // The user wasn't verified, kick them
             try {
               const memberToKick = await member.guild.members.fetch(member.id).catch(() => null);
               if (memberToKick) {
                 await memberToKick.send({
-                  content: `⏰ Vous avez été expulsé de **${member.guild.name}** car vous n'avez pas complété la vérification à temps.`
+                  content: `⏰ You have been kicked from **${member.guild.name}** because you did not complete verification in time.`
                 }).catch(() => {});
                 
-                await memberToKick.kick('Timeout de vérification captcha');
-                console.log(`⏰ ${member.user.tag} expulsé pour timeout de captcha`);
+                await memberToKick.kick('Captcha verification timeout');
+                console.log(`⏰ ${member.user.tag} kicked due to captcha timeout`);
               }
             } catch (error) {
-              console.error(`Erreur lors de l'expulsion pour timeout:`, error);
+              console.error(`Error kicking due to timeout:`, error);
             }
             
-            // Supprimer le message de captcha
+            // Delete the captcha message
             try {
               await captchaMessage.delete().catch(() => {});
             } catch (error) {
-              // Ignorer les erreurs de suppression
+              // Ignore delete errors
             }
             
             pendingVerifications.delete(verificationId);
@@ -149,12 +149,12 @@ module.exports = {
         }, actualTimeout * 60 * 1000);
       }
 
-      console.log(`🔐 Captcha envoyé à ${member.user.tag} dans ${member.guild.name}`);
+      console.log(`🔐 Captcha sent to ${member.user.tag} in ${member.guild.name}`);
 
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du captcha:', error);
+      console.error('Error while sending captcha:', error);
       
-      // Signaler l'erreur automatiquement au développeur
+      // Automatically report the error to the developer
       await reportInternalError(member.client, error, {
         commandName: 'guildMemberAdd Event',
         user: member.user,
@@ -165,5 +165,5 @@ module.exports = {
   }
 };
 
-// Exporter la map pour l'utiliser dans le gestionnaire de boutons
+// Export the map for the button handler
 module.exports.pendingVerifications = pendingVerifications;

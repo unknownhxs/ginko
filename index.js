@@ -1,7 +1,9 @@
 const { Client, IntentsBitField, Collection } = require('discord.js');
 const path = require('path');
 const fs = require('fs').promises;
+const { initDatabase } = require('./config/config');
 const { reportInternalError } = require('./src/services/reportErrorService');
+const startBotAPI = require('./src/services/botAPI');
 require('dotenv').config();
 
 // Initialiser le client Discord
@@ -132,6 +134,10 @@ async function start() {
   try {
     console.log('⏳ Chargement du bot...\n');
     
+    // Initialise la base de données au démarrage pour éviter les tables manquantes
+    await initDatabase();
+    console.log('');
+
     await loadHandlers();
     console.log('');
     
@@ -143,6 +149,9 @@ async function start() {
     
     await client.login(process.env.DISCORD_TOKEN);
     console.log('✓ Bot connecté!');
+    
+    // Démarrer l'API REST après connexion Discord
+    startBotAPI(client);
   } catch (error) {
     console.error('❌ Erreur lors du démarrage:', error);
     reportInternalError(client, error).catch(console.error);

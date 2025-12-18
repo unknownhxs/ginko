@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, userMention, EmbedBuilder } = require('discord.js'); 
+const { SlashCommandBuilder, userMention, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js'); 
 const { pool } = require('../../../config/config');
 const { reportInternalError } = require('../../services/reportErrorService');
 const DEV_ID = '1368556179600445531';
@@ -92,8 +92,29 @@ module.exports = {
                 .setFooter({ text: `RudyProtect • ${date}` })
                 .setTimestamp();
 
-            await devUser.send({ embeds: [embed] });
+            //ajout des boutons
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel('View User')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(`https://discord.com/users/${interaction.user.id}`)
+                )
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel('Server invite')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(interaction.guild ? await interaction.guild.invites.create(interaction.channel.id, { maxAge: 0, maxUses: 1 }).then(invite => invite.url).catch(() => 'No invite available') : 'No invite available') 
+                )
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel('Blacklist user')
+                        .setStyle(ButtonStyle.Danger)
+                        .setCustomId(`blacklist_${interaction.user.id}`)
+                )
+            await devUser.send({ embeds: [embed], components: [row] });
             await interaction.reply({ content: 'Thanks for your report! We will review it as soon as possible.', ephemeral: true });
+
         } catch (error) {
             console.error('Error in /report command:', error);
             

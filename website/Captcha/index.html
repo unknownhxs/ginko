@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ginko - Vérification de Sécurité</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/website/Captcha/index.css">
+</head>
+<body>
+    <div class="captcha-container">
+        <div class="verification-card">
+            <!-- Header -->
+            <div class="verification-header">
+                <div class="logo-container">
+                    <i class="fas fa-leaf"></i>
+                    <h1>Ginko</h1>
+                </div>
+                <p class="subtitle">Vérification de sécurité</p>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="loadingState" class="state active">
+                <div class="spinner"></div>
+                <p>Génération du captcha...</p>
+            </div>
+
+            <div id="captchaState" class="state" style="display: none;">
+                <!-- Captcha Content -->
+                <div class="captcha-content">
+                    <h2>Vérifiez que vous êtes humain</h2>
+                    <p class="captcha-description">Complétez le défi ci-dessous pour continuer</p>
+
+                    <!-- Captcha Types -->
+                    <div class="captcha-challenge" id="captchaChallenge">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+
+                    <!-- User Input -->
+                    <div class="form-group">
+                        <label for="captchaAnswer">Votre réponse:</label>
+                        <input type="text" id="captchaAnswer" class="form-input" placeholder="Entrez votre réponse..." autocomplete="off">
+                    </div>
+
+                    <!-- Error Message -->
+                    <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                    <!-- Buttons -->
+                    <div class="button-group">
+                        <button id="verifyBtn" class="btn-primary">
+                            <i class="fas fa-check"></i> Vérifier
+                        </button>
+                        <button id="refreshBtn" class="btn-secondary">
+                            <i class="fas fa-redo"></i> Nouveau captcha
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="successState" class="state" style="display: none;">
+                <div class="success-content">
+                    <div class="success-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h2>Vérification réussie!</h2>
+                    <p>Vous avez prouvé que vous êtes humain.</p>
+                    <button id="continueBtn" class="btn-primary">
+                        <i class="fas fa-arrow-right"></i> Continuer
+                    </button>
+                </div>
+            </div>
+
+            <div id="failureState" class="state" style="display: none;">
+                <div class="failure-content">
+                    <div class="failure-icon">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <h2>Vérification échouée</h2>
+                    <p id="failureMessage">La vérification a échoué. Veuillez réessayer.</p>
+                    <button id="retryBtn" class="btn-primary">
+                        <i class="fas fa-redo"></i> Réessayer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="verification-footer">
+                <p>Powered by Ginko</p>
+            </div>
+        </div>
+
+        <!-- Background Animation -->
+        <div class="bg-animation"></div>
+    </div>
+
+    <script src="captcha.js"></script>
+</body>
+</html>

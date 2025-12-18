@@ -1,13 +1,16 @@
 # RudyProtect Website Configuration
 # Apache .htaccess file for URL rewriting and security
 
-# Enable mod_rewrite
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
     
-    # Remove trailing slashes
+    # Exclure les fichiers et répertoires qui existent réellement
+    RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Redirige /api/* vers /api/index.php
+    RewriteRule ^api/(.*)$ /website/api/index.php [QSA,L]
     RewriteRule ^(.+)/$ $1 [L,R=301]
     
     # Redirect www to non-www

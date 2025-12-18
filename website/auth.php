@@ -1,156 +1,316 @@
 <?php
 /**
- * Discord OAuth Integration
- * Authentification via Discord
+ * Système d'authentification Discord OAuth2 et gestion des tokens de captcha
  */
 
 session_start();
-header('Content-Type: application/json');
 
 // Configuration
-$clientId = getenv('DISCORD_CLIENT_ID') ?: '';
-$clientSecret = getenv('DISCORD_CLIENT_SECRET') ?: '';
-$redirectUrl = getenv('DISCORD_REDIRECT_URL') ?: 'http://localhost:8000/auth/callback';
+define('DISCORD_CLIENT_ID', getenv('DISCORD_CLIENT_ID') ?: 'YOUR_CLIENT_ID_HERE');
+define('DISCORD_CLIENT_SECRET', getenv('DISCORD_CLIENT_SECRET') ?: 'YOUR_CLIENT_SECRET_HERE');
+define('DISCORD_REDIRECT_URI', getenv('DISCORD_REDIRECT_URI') ?: 'http://localhost:8000/auth/callback');
+define('DISCORD_API_ENDPOINT', 'https://discordapp.com/api');
 
-// Endpoints Discord
-define('DISCORD_API', 'https://discordapp.com/api/v10');
-define('DISCORD_AUTH_URL', 'https://discord.com/api/oauth2/authorize');
-define('DISCORD_TOKEN_URL', DISCORD_API . '/oauth2/token');
-define('DISCORD_USER_URL', DISCORD_API . '/users/@me');
-define('DISCORD_GUILDS_URL', DISCORD_API . '/users/@me/guilds');
+// ===== GÉNÉRER UN TOKEN ALÉATOIRE =====
+function generateRandomToken($length = 32) {
+    return bin2hex(random_bytes($length / 2));
+}
 
-class DiscordAuth {
-    private $clientId;
-    private $clientSecret;
-    private $redirectUrl;
+// ===== GÉNÉRER UN TOKEN CAPTCHA AVEC URL =====
+function generateCaptchaToken() {
+    $token = generateRandomToken(24);
+    
+    // Stocker le mapping token -> timestamp
+    $_SESSION['captcha_tokens'] = $_SESSION['captcha_tokens'] ?? [];
+    $_SESSION['captcha_tokens'][$token] = [
+        'created' => time(),
+        'user_id' => $_SESSION['user_id'] ?? null,
+        'verified' => false
+    ];
+    
+    return $token;
+}
 
-    public function __construct($clientId, $clientSecret, $redirectUrl) {
-        $this->clientId = $clientId;
-        $this->clientSecret = $clientSecret;
-        $this->redirectUrl = $redirectUrl;
+// ===== VALIDER UN TOKEN CAPTCHA =====
+function validateCaptchaToken($token) {
+    if (!isset($_SESSION['captcha_tokens'][$token])) {
+        return false;
     }
-
-    /**
-     * Obtenir l'URL de connexion
-     */
-    public function getLoginUrl($state = null) {
-        if (!$state) {
-            $state = bin2hex(random_bytes(16));
-            $_SESSION['oauth_state'] = $state;
-        }
-
-        $params = [
-            'client_id' => $this->clientId,
-            'redirect_uri' => $this->redirectUrl,
-            'response_type' => 'code',
-            'scope' => 'identify email guilds',
-            'state' => $state
-        ];
-
-        return DISCORD_AUTH_URL . '?' . http_build_query($params);
+    
+    $tokenData = $_SESSION['captcha_tokens'][$token];
+    
+    // Vérifier si le token n'a pas expiré (5 minutes)
+    if (time() - $tokenData['created'] > 300) {
+        unset($_SESSION['captcha_tokens'][$token]);
+        return false;
     }
+    
+    return true;
+}
 
-    /**
-     * Échanger le code pour un token
-     */
-    public function exchangeCode($code) {
-        $post_data = [
-            'client_id' => $this->clientId,
-            'client_secret' => $this->clientSecret,
-            'grant_type' => 'authorization_code',
-            'code' => $code,
-            'redirect_uri' => $this->redirectUrl,
-            'scope' => 'identify email guilds'
-        ];
-
-        $ch = curl_init(DISCORD_TOKEN_URL);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        return json_decode($response, true);
-    }
-
-    /**
-     * Récupérer les infos utilisateur
-     */
-    public function getUser($accessToken) {
-        $ch = curl_init(DISCORD_USER_URL);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $accessToken,
-            'User-Agent: RudyProtect'
-        ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        return json_decode($response, true);
-    }
-
-    /**
-     * Récupérer les serveurs de l'utilisateur
-     */
-    public function getGuilds($accessToken) {
-        $ch = curl_init(DISCORD_GUILDS_URL);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $accessToken,
-            'User-Agent: RudyProtect'
-        ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        return json_decode($response, true);
-    }
-
-    /**
-     * Vérifier les permissions
-     */
-    public function hasAdminPermissions($guild, $userId) {
-        // Vérifier si l'utilisateur est propriétaire
-        return isset($guild['owner']) && $guild['owner'] == true;
+// ===== MARQUER UN TOKEN COMME VÉRIFIÉ =====
+function markCaptchaTokenAsVerified($token) {
+    if (isset($_SESSION['captcha_tokens'][$token])) {
+        $_SESSION['captcha_tokens'][$token]['verified'] = true;
+        $_SESSION['captcha_tokens'][$token]['verified_time'] = time();
     }
 }
 
-// Routeur
-$action = $_GET['action'] ?? '';
+// ===== RÉCUPÉRER LES DONNÉES DISCORD =====
+function getDiscordUser($access_token) {
+    $curl = curl_init();
+    
+    curl_setopt_array($curl, [
+        CURLOPT_URL => DISCORD_API_ENDPOINT . '/users/@me',
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $access_token,
+            'User-Agent: Ginko-Bot'
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
+    
+    $response = curl_exec($curl);
+    $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    
+    if ($httpCode !== 200) {
+        return null;
+    }
+    
+    return json_decode($response, true);
+}
+
+// ===== RÉCUPÉRER LES SERVEURS DE L'UTILISATEUR =====
+function getDiscordUserGuilds($access_token) {
+    $curl = curl_init();
+    
+    curl_setopt_array($curl, [
+        CURLOPT_URL => DISCORD_API_ENDPOINT . '/users/@me/guilds',
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $access_token,
+            'User-Agent: Ginko-Bot'
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
+    
+    $response = curl_exec($curl);
+    $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    
+    if ($httpCode !== 200) {
+        return [];
+    }
+    
+    return json_decode($response, true) ?? [];
+}
+
+// ===== ROUTER LES ACTIONS =====
+$action = $_GET['action'] ?? $_POST['action'] ?? null;
+
+header('Content-Type: application/json');
 
 switch ($action) {
-    case 'login':
-        handleLogin();
+    case 'discord':
+        redirectToDiscordOAuth();
         break;
+    
     case 'callback':
-        handleCallback();
+        handleDiscordCallback();
         break;
+    
     case 'logout':
         handleLogout();
         break;
-    case 'user':
-        handleUser();
+    
+    case 'generate-captcha-token':
+        generateCaptchaTokenAction();
         break;
-    case 'guilds':
-        handleGuilds();
+    
+    case 'verify-captcha-token':
+        verifyCaptchaTokenAction();
         break;
+    
+    case 'get-user':
+        getCurrentUserAction();
+        break;
+    
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Action non valide']);
+        echo json_encode(['error' => 'Action non reconnue']);
+        break;
+}
+// ===== REDIRIGER VERS DISCORD OAUTH =====
+function redirectToDiscordOAuth() {
+    $state = bin2hex(random_bytes(16));
+    $_SESSION['oauth_state'] = $state;
+    
+    $scopes = ['identify', 'guilds', 'email'];
+    $scope_string = implode('%20', $scopes);
+    
+    $url = DISCORD_API_ENDPOINT . '/oauth2/authorize?' . http_build_query([
+        'client_id' => DISCORD_CLIENT_ID,
+        'redirect_uri' => DISCORD_REDIRECT_URI,
+        'response_type' => 'code',
+        'scope' => $scope_string,
+        'state' => $state
+    ]);
+    
+    header('Location: ' . $url);
+    exit;
 }
 
-// ===== HANDLERS =====
+// ===== GÉRER LE CALLBACK DISCORD =====
+function handleDiscordCallback() {
+    // Vérifier le state
+    if (!isset($_GET['state']) || $_GET['state'] !== $_SESSION['oauth_state']) {
+        http_response_code(403);
+        echo json_encode(['error' => 'État invalide']);
+        exit;
+    }
+    
+    // Vérifier le code
+    if (!isset($_GET['code'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Code manquant']);
+        exit;
+    }
+    
+    // Échanger le code pour un access_token
+    $curl = curl_init();
+    
+    curl_setopt_array($curl, [
+        CURLOPT_URL => DISCORD_API_ENDPOINT . '/oauth2/token',
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'client_id' => DISCORD_CLIENT_ID,
+            'client_secret' => DISCORD_CLIENT_SECRET,
+            'grant_type' => 'authorization_code',
+            'code' => $_GET['code'],
+            'redirect_uri' => DISCORD_REDIRECT_URI
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
+    
+    $response = curl_exec($curl);
+    $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    
+    if ($httpCode !== 200) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Erreur lors de l\'authentification Discord']);
+        exit;
+    }
+    
+    $tokenData = json_decode($response, true);
+    $access_token = $tokenData['access_token'];
+    
+    // Récupérer les données de l'utilisateur
+    $user = getDiscordUser($access_token);
+    $guilds = getDiscordUserGuilds($access_token);
+    
+    if (!$user) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Erreur lors de la récupération des données']);
+        exit;
+    }
+    
+    // Créer la session utilisateur
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['avatar'] = 'https://cdn.discordapp.com/avatars/' . $user['id'] . '/' . $user['avatar'] . '.png';
+    $_SESSION['email'] = $user['email'];
+    $_SESSION['access_token'] = $access_token;
+    $_SESSION['guilds'] = $guilds;
+    
+    // Stocker en sessionStorage côté client
+    $userData = [
+        'id' => $user['id'],
+        'username' => $user['username'],
+        'avatar' => $_SESSION['avatar'],
+        'email' => $user['email']
+    ];
+    
+    // Rediriger vers le dashboard
+    header('Location: /website/dashboard.html?user=' . urlencode(json_encode($userData)));
+    exit;
+}
 
-function handleLogin() {
-    global $clientId, $clientSecret, $redirectUrl;
+// ===== GÉNÉRER UN TOKEN CAPTCHA =====
+function generateCaptchaTokenAction() {
+    // Vérifier que l'utilisateur est connecté
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Non authentifié']);
+        exit;
+    }
+    
+    $token = generateCaptchaToken();
+    
+    echo json_encode([
+        'success' => true,
+        'token' => $token,
+        'url' => '/website/captcha.html?token=' . $token
+    ]);
+}
 
-    if (!$clientId || !$clientSecret) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Discord OAuth non configuré']);
-        return;
+// ===== VÉRIFIER UN TOKEN CAPTCHA =====
+function verifyCaptchaTokenAction() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $token = $data['token'] ?? null;
+    
+    if (!$token) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Token manquant']);
+        exit;
+    }
+    
+    if (!validateCaptchaToken($token)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Token invalide ou expiré']);
+        exit;
+    }
+    
+    markCaptchaTokenAsVerified($token);
+    
+    echo json_encode([
+        'success' => true,
+        'verified' => true
+    ]);
+}
+
+// ===== OBTENIR L'UTILISATEUR ACTUEL =====
+function getCurrentUserAction() {
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['authenticated' => false]);
+        exit;
+    }
+    
+    echo json_encode([
+        'authenticated' => true,
+        'user' => [
+            'id' => $_SESSION['user_id'],
+            'username' => $_SESSION['username'],
+            'avatar' => $_SESSION['avatar'],
+            'email' => $_SESSION['email']
+        ]
+    ]);
+}
+
+// ===== DÉCONNEXION =====
+function handleLogout() {
+    // Détruire la session
+    $_SESSION = [];
+    session_destroy();
+    
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+?>
     }
 
     $auth = new DiscordAuth($clientId, $clientSecret, $redirectUrl);

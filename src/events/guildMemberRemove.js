@@ -2,31 +2,31 @@ const { EmbedBuilder, ChannelType } = require('discord.js');
 const { pool } = require('../../config/config');
 const { reportInternalError } = require('../services/reportErrorService');
 
-// Fonction pour supprimer les messages d'un utilisateur
+// Function to delete a user's messages
 async function deleteUserMessages(member) {
   let totalDeleted = 0;
   const userId = member.user.id;
   const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
   
-  // Parcourir tous les canaux textuels du serveur
+  // Iterate through all text channels in the server
   const textChannels = member.guild.channels.cache.filter(
     channel => channel.isTextBased() && channel.type !== ChannelType.DM
   );
   
-  console.log(`  🔍 Recherche dans ${textChannels.size} canal(x)...`);
+  console.log(`  🔍 Scanning ${textChannels.size} channel(s)...`);
   
   for (const channel of textChannels.values()) {
     try {
-      // Vérifier les permissions du bot
+      // Check bot permissions
       const botMember = member.guild.members.me;
       if (!botMember) {
-        console.log(`  ⚠️ Bot membre non trouvé pour ${channel.name}`);
+        console.log(`  ⚠️ Bot member not found for ${channel.name}`);
         continue;
       }
       
       const permissions = channel.permissionsFor(botMember);
       if (!permissions?.has(['ViewChannel', 'ManageMessages', 'ReadMessageHistory'])) {
-        console.log(`  ⚠️ Permissions insuffisantes dans #${channel.name}`);
+        console.log(`  ⚠️ Insufficient permissions in #${channel.name}`);
         continue;
       }
       
@@ -35,7 +35,7 @@ async function deleteUserMessages(member) {
       let channelDeleted = 0;
       let messagesChecked = 0;
       
-      // Parcourir les messages par batch de 100 (limite Discord)
+      // Fetch messages in batches of 100 (Discord limit)
       while (hasMore) {
         try {
           const options = { limit: 100 };
@@ -52,17 +52,17 @@ async function deleteUserMessages(member) {
           
           messagesChecked += messages.size;
           
-          // Filtrer les messages de l'utilisateur
+          // Filter the user's messages
           const userMessages = messages.filter(msg => msg.author.id === userId);
           
           if (userMessages.size > 0) {
             const messagesToDelete = Array.from(userMessages.values());
             
-            // Séparer les messages récents (bulk delete) et anciens (delete individuel)
+            // Separate recent messages (bulk delete) and old ones (individual delete)
             const recentMessages = messagesToDelete.filter(msg => msg.createdTimestamp >= fourteenDaysAgo);
             const oldMessages = messagesToDelete.filter(msg => msg.createdTimestamp < fourteenDaysAgo);
             
-            // Supprimer les messages récents en batch (plus rapide)
+            // Delete recent messages in batch (faster)
             if (recentMessages.length > 0) {
               // bulkDelete nécessite un tableau d'IDs de messages
               const recentMessageIds = recentMessages.map(msg => msg.id);
@@ -74,10 +74,10 @@ async function deleteUserMessages(member) {
                 try {
                   const deleted = await channel.bulkDelete(batch, true);
                   channelDeleted += deleted.size;
-                  console.log(`    ✓ ${deleted.size} message(s) récent(s) supprimé(s) en batch dans #${channel.name}`);
+                  console.log(`    ✓ ${deleted.size} recent message(s) deleted in batch in #${channel.name}`);
                 } catch (error) {
-                  console.error(`    ⚠️ Erreur bulkDelete dans #${channel.name}:`, error.message);
-                  // Si bulkDelete échoue, essayer de supprimer individuellement
+                  console.error(`    ⚠️ bulkDelete error in #${channel.name}:`, error.message);
+                  // If bulkDelete fails, try to delete individually
                   for (const msgId of batch) {
                     try {
                       const msg = recentMessages.find(m => m.id === msgId);
@@ -86,53 +86,53 @@ async function deleteUserMessages(member) {
                         channelDeleted++;
                       }
                     } catch (err) {
-                      // Ignorer les erreurs individuelles
+                      // Ignore individual errors
                     }
                   }
                 }
                 
-                // Pause pour éviter le rate limit
+                // Pause to avoid rate limits
                 await new Promise(resolve => setTimeout(resolve, 1000));
               }
             }
             
-            // Supprimer les messages anciens un par un (limite Discord)
+            // Delete old messages one by one (Discord limitation)
             if (oldMessages.length > 0) {
-              console.log(`    📝 ${oldMessages.length} message(s) ancien(s) à supprimer individuellement dans #${channel.name}...`);
+              console.log(`    📝 ${oldMessages.length} old message(s) to delete individually in #${channel.name}...`);
               for (const msg of oldMessages) {
                 try {
                   await msg.delete();
                   channelDeleted++;
-                  // Pause plus longue pour les messages anciens
+                  // Longer pause for old messages
                   await new Promise(resolve => setTimeout(resolve, 300));
                 } catch (error) {
-                  // Message peut ne plus exister ou ne pas être supprimable
+                  // Message may no longer exist or be undeletable
                   if (error.code !== 10008) { // Unknown Message
-                    // Ignorer les autres erreurs silencieusement
+                    // Ignore other errors silently
                   }
                 }
               }
             }
           }
           
-          // Mettre à jour lastMessageId pour la prochaine itération
+          // Update lastMessageId for the next iteration
           if (messages.size < 100) {
             hasMore = false;
           } else {
             lastMessageId = messages.last().id;
           }
           
-          // Pause entre les batches pour éviter le rate limit
+          // Pause between batches to avoid rate limits
           await new Promise(resolve => setTimeout(resolve, 500));
           
         } catch (error) {
-          // Si erreur de rate limit, attendre plus longtemps
+          // If rate limited, wait longer
           if (error.code === 429 || error.status === 429) {
             const retryAfter = error.retryAfter || error.retry_after || 5;
-            console.log(`  ⏳ Rate limit atteint dans #${channel.name}, attente de ${retryAfter} secondes...`);
+            console.log(`  ⏳ Rate limit reached in #${channel.name}, waiting ${retryAfter} seconds...`);
             await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
           } else {
-            console.error(`  ⚠️ Erreur dans #${channel.name}:`, error.message);
+            console.error(`  ⚠️ Error in #${channel.name}:`, error.message);
             hasMore = false;
           }
         }
@@ -141,13 +141,13 @@ async function deleteUserMessages(member) {
       totalDeleted += channelDeleted;
       
       if (channelDeleted > 0) {
-        console.log(`  ✓ #${channel.name}: ${channelDeleted} message(s) supprimé(s) (${messagesChecked} vérifié(s))`);
+        console.log(`  ✓ #${channel.name}: ${channelDeleted} message(s) deleted (${messagesChecked} checked)`);
       } else if (messagesChecked > 0) {
-        console.log(`  ℹ️ #${channel.name}: Aucun message trouvé (${messagesChecked} vérifié(s))`);
+        console.log(`  ℹ️ #${channel.name}: No messages found (${messagesChecked} checked)`);
       }
       
     } catch (error) {
-      console.error(`  ❌ Erreur lors du traitement du canal ${channel.name}:`, error.message);
+      console.error(`  ❌ Error processing channel ${channel.name}:`, error.message);
     }
   }
   
@@ -160,7 +160,7 @@ module.exports = {
   
   async execute(member) {
     try {
-      // Vérifier si le captcha est activé et si l'utilisateur l'a complété
+      // Check if captcha is enabled and if the user completed it
       const captchaConfig = await pool.query(
         'SELECT * FROM captcha_config WHERE guild_id = $1',
         [member.guild.id]
@@ -170,53 +170,53 @@ module.exports = {
       let captchaMessageId = null;
       let captchaChannelId = null;
 
-      // Si le captcha est activé, vérifier si l'utilisateur l'a complété
+      // If captcha enabled, check if the user completed it
       if (captchaConfig.rows.length > 0 && captchaConfig.rows[0].enabled) {
         const config = captchaConfig.rows[0];
         const guildMemberAddEvent = require('./guildMemberAdd');
         const pendingVerifications = guildMemberAddEvent.pendingVerifications;
         
-        // Vérifier si l'utilisateur est encore dans les vérifications en attente
+        // Check if the user is still pending verification
         let foundInPending = false;
         for (const [verificationId, verification] of pendingVerifications.entries()) {
           if (verification.memberId === member.id && verification.guildId === member.guild.id) {
-            // L'utilisateur est encore en attente de vérification = non vérifié
+            // User still pending = not verified
             foundInPending = true;
             captchaVerified = false;
             captchaMessageId = verification.messageId;
             captchaChannelId = verification.channelId;
-            // Supprimer de la map
+            // Remove from the map
             pendingVerifications.delete(verificationId);
             break;
           }
         }
         
-        // Si pas trouvé dans pendingVerifications, vérifier avec le rôle (si configuré)
+        // If not pending, check by role (if configured)
         if (!foundInPending && config.role_id) {
           try {
-            // Essayer de récupérer le membre avant qu'il ne quitte
+            // Try to fetch the member before they leave
             const memberWithRoles = await member.guild.members.fetch(member.id).catch(() => null);
             
             if (memberWithRoles) {
-              // Si on peut récupérer le membre, vérifier le rôle
+              // If we can fetch the member, check the role
               captchaVerified = memberWithRoles.roles.cache.has(config.role_id);
             } else {
-              // Si on ne peut pas récupérer le membre, mais qu'il n'est pas dans pendingVerifications,
-              // c'est qu'il a complété le captcha (car il a été supprimé de pendingVerifications après vérification)
+              // If we cannot fetch the member and they are not in pendingVerifications,
+              // assume captcha was completed (removed from pending after verification)
               captchaVerified = true;
             }
           } catch (error) {
-            console.error('Erreur lors de la vérification du captcha:', error);
-            // Si erreur mais pas dans pendingVerifications, considérer comme vérifié
+            console.error('Error during captcha check:', error);
+            // If error but not in pendingVerifications, consider as verified
             captchaVerified = true;
           }
         } else if (!foundInPending) {
-          // Pas de rôle configuré et pas dans pendingVerifications = vérifié
+          // No role configured and not pending = verified
           captchaVerified = true;
         }
       }
 
-      // Supprimer le message de captcha s'il existe
+      // Delete captcha message if exists
       if (captchaMessageId && captchaChannelId) {
         try {
           const channel = member.guild.channels.cache.get(captchaChannelId);
@@ -224,30 +224,30 @@ module.exports = {
             const message = await channel.messages.fetch(captchaMessageId).catch(() => null);
             if (message) {
               await message.delete().catch(() => {});
-              console.log(`🗑️ Message de captcha supprimé pour ${member.user.tag}`);
+              console.log(`🗑️ Captcha message deleted for ${member.user.tag}`);
             }
           }
         } catch (error) {
-          console.error('Erreur lors de la suppression du message de captcha:', error);
+          console.error('Error while deleting captcha message:', error);
         }
       }
 
-      // Si le captcha est activé et que l'utilisateur ne l'a pas complété, ne pas supprimer les messages
+      // If captcha enabled and user didn't complete it, do not delete messages
       if (captchaConfig.rows.length > 0 && captchaConfig.rows[0].enabled && !captchaVerified) {
-        console.log(`⚠️ ${member.user.tag} a quitté le serveur ${member.guild.name} sans avoir complété le captcha. Messages non supprimés.`);
+        console.log(`⚠️ ${member.user.tag} left ${member.guild.name} without completing captcha. Messages not deleted.`);
         
-        // Log dans un canal si configuré
+        // Log to a channel if configured
         const logChannelId = process.env.LOG_CHANNEL_ID;
         if (logChannelId) {
           const logChannel = member.guild.channels.cache.get(logChannelId);
           if (logChannel) {
             const embed = new EmbedBuilder()
-              .setTitle('👋 Membre parti (non vérifié)')
-              .setDescription(`${member.user.tag} a quitté le serveur sans avoir complété le captcha.`)
+              .setTitle('👋 Member left (not verified)')
+              .setDescription(`${member.user.tag} left the server without completing captcha.`)
               .addFields(
-                { name: '👤 Utilisateur', value: `${member.user.tag} (${member.user.id})`, inline: true },
-                { name: '🔐 Statut', value: '❌ Captcha non complété', inline: true },
-                { name: '🗑️ Messages', value: 'Non supprimés (captcha non complété)', inline: true }
+                { name: '👤 User', value: `${member.user.tag} (${member.user.id})`, inline: true },
+                { name: '🔐 Status', value: '❌ Captcha not completed', inline: true },
+                { name: '🗑️ Messages', value: 'Not deleted (captcha not completed)', inline: true }
               )
               .setColor(0xFFA500)
               .setThumbnail(member.user.displayAvatarURL())
@@ -260,21 +260,21 @@ module.exports = {
         return; // Ne pas supprimer les messages
       }
 
-      console.log(`👋 ${member.user.tag} a quitté le serveur ${member.guild.name}. Suppression de ses messages...`);
+      console.log(`👋 ${member.user.tag} left ${member.guild.name}. Deleting their messages...`);
       
       const deletedCount = await deleteUserMessages(member);
       
-      // Log dans un canal si configuré
+      // Log to a channel if configured
       const logChannelId = process.env.LOG_CHANNEL_ID;
       if (logChannelId) {
         const logChannel = member.guild.channels.cache.get(logChannelId);
         if (logChannel) {
           const embed = new EmbedBuilder()
-            .setTitle('👋 Membre parti')
-            .setDescription(`${member.user.tag} a quitté le serveur.`)
+            .setTitle('👋 Member left')
+            .setDescription(`${member.user.tag} left the server.`)
             .addFields(
-              { name: '👤 Utilisateur', value: `${member.user.tag} (${member.user.id})`, inline: true },
-              { name: '🗑️ Messages supprimés', value: `${deletedCount} message(s)`, inline: true }
+              { name: '👤 User', value: `${member.user.tag} (${member.user.id})`, inline: true },
+              { name: '🗑️ Messages deleted', value: `${deletedCount} message(s)`, inline: true }
             )
             .setColor(0xFFA500)
             .setThumbnail(member.user.displayAvatarURL())
@@ -285,15 +285,15 @@ module.exports = {
       }
       
       if (deletedCount > 0) {
-        console.log(`✓ ${deletedCount} message(s) supprimé(s) pour ${member.user.tag}`);
+        console.log(`✓ ${deletedCount} message(s) deleted for ${member.user.tag}`);
       } else {
-        console.log(`ℹ️ Aucun message supprimé pour ${member.user.tag}`);
+        console.log(`ℹ️ No messages deleted for ${member.user.tag}`);
       }
     } catch (error) {
-      console.error('❌ Erreur lors de la suppression des messages:', error);
+      console.error('❌ Error while deleting messages:', error);
       console.error('Stack:', error.stack);
       
-      // Signaler l'erreur automatiquement au développeur
+      // Automatically report the error to the developer
       await reportInternalError(member.client, error, {
         commandName: 'guildMemberRemove Event (deleteUserMessages)',
         user: member.user,

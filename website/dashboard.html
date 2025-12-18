@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ginko - Dashboard de Configuration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/website/dashboard.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-container">
+            <div class="logo-section">
+                <i class="fas fa-leaf"></i>
+                <h1>Ginko Dashboard</h1>
+            </div>
+            <div class="header-actions">
+                <div class="user-profile">
+                    <img id="userAvatar" class="user-avatar" src="" alt="Avatar">
+                    <div class="user-info">
+                        <div id="userName" class="user-name">Chargement...</div>
+                        <div class="user-status">En ligne</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="dashboard-sidebar">
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Vue d'ensemble</span>
+                </a>
+                <a href="#" class="nav-item" data-section="servers">
+                    <i class="fas fa-server"></i>
+                    <span>Serveurs</span>
+                </a>
+                <a href="#" class="nav-item" data-section="moderation">
+                    <i class="fas fa-gavel"></i>
+                    <span>Modération</span>
+                </a>
+                <a href="#" class="nav-item" data-section="blacklist">
+                    <i class="fas fa-ban"></i>
+                    <span>Blacklist</span>
+                </a>
+                <a href="#" class="nav-item" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Paramètres</span>
+                </a>
+                <a href="#" class="nav-item" data-section="logs">
+                    <i class="fas fa-history"></i>
+                    <span>Journaux</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <!-- Overview Section -->
+            <section id="overview" class="section active">
+                <div class="section-header">
+                    <h2>Vue d'ensemble</h2>
+                    <p>Bienvenue dans votre tableau de bord de gestion</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-server"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="serverCount">0</div>
+                            <div class="stat-label">Serveurs Gérés</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="userCount">0</div>
+                            <div class="stat-label">Utilisateurs Protégés</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="threatCount">0</div>
+                            <div class="stat-label">Menaces Bloquées</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="uptime">99.9%</div>
+                            <div class="stat-label">Disponibilité</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overview-content">
+                    <div class="card">
+                        <h3><i class="fas fa-history"></i> Activité Récente</h3>
+                        <div id="recentActivity" class="activity-list">
+                            <p class="empty-state">Aucune activité récente</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Servers Section -->
+            <section id="servers" class="section">
+                <div class="section-header">
+                    <h2>Gestion des Serveurs</h2>
+                    <button class="btn btn-primary" onclick="showAddServerModal()">
+                        <i class="fas fa-plus"></i> Ajouter un Serveur
+                    </button>
+                </div>
+
+                <div id="serversList" class="servers-grid">
+                    <p class="empty-state">Aucun serveur configuré</p>
+                </div>
+            </section>
+
+            <!-- Moderation Section -->
+            <section id="moderation" class="section">
+                <div class="section-header">
+                    <h2>Paramètres de Modération</h2>
+                </div>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-ban"></i> Anti-Spam</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="antiSpam" class="toggle-checkbox" checked>
+                            <label class="toggle-label" for="antiSpam"></label>
+                        </div>
+                        <p class="help-text">Détecte et bloque les messages répétitifs</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-link"></i> Anti-Lien</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="antiLink" class="toggle-checkbox">
+                            <label class="toggle-label" for="antiLink"></label>
+                        </div>
+                        <p class="help-text">Bloque les liens externes non autorisés</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-keyboard"></i> Sensibilité Anti-Spam</label>
+                        <input type="range" min="1" max="10" value="5" id="spamSensitivity" class="slider">
+                        <div class="slider-values">
+                            <span>Faible</span>
+                            <span id="sensitivityValue">5/10</span>
+                            <span>Haute</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Rôle de Modérateur</label>
+                        <select id="modRole" class="form-select">
+                            <option value="">Aucun rôle sélectionné</option>
+                            <option value="admin">Administrateur</option>
+                            <option value="mod">Modérateur</option>
+                            <option value="staff">Staff</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveModerationSettings()">
+                        <i class="fas fa-save"></i> Sauvegarder
+                    </button>
+                </div>
+            </section>
+
+            <!-- Blacklist Section -->
+            <section id="blacklist" class="section">
+                <div class="section-header">
+                    <h2>Gestion de la Blacklist</h2>
+                    <button class="btn btn-primary" onclick="showAddBlacklistModal()">
+                        <i class="fas fa-plus"></i> Ajouter à la Blacklist
+                    </button>
+                </div>
+
+                <div class="blacklist-tabs">
+                    <button class="tab-btn active" onclick="switchBlacklistTab('ids')">IDs</button>
+                    <button class="tab-btn" onclick="switchBlacklistTab('ips')">IPs</button>
+                </div>
+
+                <div id="idsTab" class="tab-content active">
+                    <div id="idsList" class="blacklist-table">
+                        <p class="empty-state">Aucun ID en blacklist</p>
+                    </div>
+                </div>
+
+                <div id="ipsTab" class="tab-content">
+                    <div id="ipsList" class="blacklist-table">
+                        <p class="empty-state">Aucune IP en blacklist</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="section">
+                <div class="section-header">
+                    <h2>Paramètres du Bot</h2>
+                </div>
+
+                <div class="settings-form">
+                    <h3>Paramètres Généraux</h3>
+                    
+                    <div class="form-group">
+                        <label>Préfixe du Bot</label>
+                        <input type="text" id="botPrefix" class="form-input" placeholder="!" maxlength="5">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-shield-alt"></i> Captcha pour Nouveaux Membres</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="captchaEnabled" class="toggle-checkbox" checked>
+                            <label class="toggle-label" for="captchaEnabled"></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Délai Captcha (en secondes)</label>
+                        <input type="number" id="captchaDelay" class="form-input" value="300" min="60">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-bell"></i> Notifications</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="notificationsEnabled" class="toggle-checkbox" checked>
+                            <label class="toggle-label" for="notificationsEnabled"></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Canal de Journalisation</label>
+                        <select id="logChannel" class="form-select">
+                            <option value="">Aucun canal sélectionné</option>
+                            <option value="logs">Logs</option>
+                            <option value="moderation">Modération</option>
+                            <option value="security">Sécurité</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        <i class="fas fa-save"></i> Sauvegarder les Paramètres
+                    </button>
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section id="logs" class="section">
+                <div class="section-header">
+                    <h2>Journaux du Système</h2>
+                </div>
+
+                <div class="logs-filters">
+                    <input type="text" placeholder="Rechercher..." class="form-input" id="logSearch" style="max-width: 300px;">
+                    <select id="logType" class="form-select" style="max-width: 200px;">
+                        <option value="">Tous les types</option>
+                        <option value="error">Erreurs</option>
+                        <option value="warning">Avertissements</option>
+                        <option value="info">Informations</option>
+                        <option value="success">Succès</option>
+                    </select>
+                </div>
+
+                <div id="logsList" class="logs-table">
+                    <p class="empty-state">Aucun journal disponible</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+
+    <script src="/website/dashboard.js"></script>
+</body>
+</html>
